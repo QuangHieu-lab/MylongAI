@@ -1,21 +1,61 @@
-import { Button } from "@/components/ui/button"
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import { RootLayout } from '../components/RootLayout';
+import Landing from '../pages/Landing';
+import Login from '../pages/Login';
+import ProtectedDashboard from './components/ProtectedDashboard';
+import Overview from './pages/Overview';
+import BatchDetail from './pages/BatchDetail';
+import History from './pages/History';
+import CameraMonitoring from './pages/CameraMonitoring';
+import Weather from './pages/Weather';
+import VoiceAlerts from './pages/VoiceAlerts';
 
-export function App() {
-  return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
-  )
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      {
+        path: '/',
+        element: <Landing />,
+      },
+      {
+        path: '/login',
+        element: <Login />,
+      },
+      {
+        path: '/dashboard',
+        element: <ProtectedDashboard />,
+        children: [
+          {
+            index: true,
+            element: <Overview />,
+          },
+          {
+            path: 'batch/:id',
+            element: <BatchDetail />,
+          },
+          {
+            path: 'camera',
+            element: <CameraMonitoring />,
+          },
+          {
+            path: 'weather',
+            element: <Weather />,
+          },
+          {
+            path: 'voice',
+            element: <VoiceAlerts />,
+          },
+          {
+            path: 'history',
+            element: <History />,
+          },
+        ],
+      },
+    ],
+  },
+]);
+
+export default function App() {
+  return <RouterProvider router={router} />;
 }
-
-export default App

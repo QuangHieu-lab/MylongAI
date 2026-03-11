@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { AlertTriangle, Clock, Thermometer, Droplets, ArrowRight, TrendingUp } from 'lucide-react';
-import { Batch } from '../data/mockData';
+import {  type Batch } from '../data/mockData';
 
 interface BatchCardProps {
   batch: Batch;
