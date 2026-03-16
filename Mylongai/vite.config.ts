@@ -11,4 +11,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+   server: {
+    proxy: {
+      '/fpt-tts': {
+        target: 'https://api.fpt.ai',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fpt-tts/, '/hmi/tts/v5'),
+      },
+    },
+  },
 })

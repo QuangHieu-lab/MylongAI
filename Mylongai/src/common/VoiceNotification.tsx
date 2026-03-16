@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '../components/ui/button';
-import { Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface WeatherData {
@@ -18,13 +18,25 @@ interface VoiceNotificationProps {
 export function VoiceNotification({ weatherData }: VoiceNotificationProps) {
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const API_KEY = 'sk_04bcb21f88cafbf9859898e244620e47e6dda08182b7ab86';
-  const VOICE_ID = 'ueSxRO0nLF1bj93J2hVt';
+  // dịch condition sang tiếng Việt
+  const translateCondition = (condition: string) => {
 
-  // chuyển số → chữ tiếng Việt
+    const map: Record<string, string> = {
+      Clear: "Trời quang",
+      Clouds: "Nhiều mây",
+      Rain: "Mưa",
+      Drizzle: "Mưa phùn",
+      Thunderstorm: "Dông",
+      Mist: "Sương mù",
+      Fog: "Sương mù",
+      Haze: "Sương nhẹ"
+    };
+
+    return map[condition] || condition;
+  };
+
   const numberToVietnamese = (num: number) => {
 
     const ones = [
@@ -49,7 +61,6 @@ export function VoiceNotification({ weatherData }: VoiceNotificationProps) {
     return num.toString();
   };
 
-  // đọc số thập phân (32.4)
   const readDecimal = (num: number) => {
 
     const parts = num.toFixed(1).split(".");
@@ -73,111 +84,70 @@ export function VoiceNotification({ weatherData }: VoiceNotificationProps) {
       'bình thường';
 
     return `
-      Thông báo thời tiết khu vực phơi bánh tráng Mỹ Lồng.
+Thông báo thời tiết khu vực phơi bánh tráng Mỹ Lồng.
 
-      Nhiệt độ hiện tại: ${readDecimal(weatherData.temperature)} độ C.
+Nhiệt độ hiện tại ${readDecimal(weatherData.temperature)} độ C.
 
-      Độ ẩm không khí: ${numberToVietnamese(Math.round(weatherData.humidity))} phần trăm, ở mức ${humidityLevel}.
+Độ ẩm không khí ${numberToVietnamese(Math.round(weatherData.humidity))} phần trăm, ở mức ${humidityLevel}.
 
-      Khả năng mưa: ${numberToVietnamese(Math.round(weatherData.rainChance))} phần trăm, mức độ rủi ro ${riskLevel}.
+Khả năng mưa ${numberToVietnamese(Math.round(weatherData.rainChance))} phần trăm, mức độ rủi ro ${riskLevel}.
 
-      Tốc độ gió: ${readDecimal(weatherData.windSpeed)} ki lô mét trên giờ.
+Tốc độ gió ${readDecimal(weatherData.windSpeed)} ki lô mét trên giờ.
 
-      Tình trạng thời tiết: ${weatherData.condition}.
+Tình trạng thời tiết ${translateCondition(weatherData.condition)}.
 
-      ${weatherData.rainChance > 60
-        ? 'Cảnh báo. Nguy cơ mưa cao. Khuyến nghị chuẩn bị thu bánh hoặc che chắn.'
-        : weatherData.rainChance > 30
-        ? 'Lưu ý. Theo dõi sát diễn biến thời tiết trong giờ tới.'
-        : 'Điều kiện phơi bánh ổn định. Có thể tiếp tục phơi an toàn.'}
-    `.trim();
+${weatherData.rainChance > 60
+  ? 'Cảnh báo. Nguy cơ mưa cao. Khuyến nghị chuẩn bị thu bánh hoặc che chắn.'
+  : weatherData.rainChance > 30
+  ? 'Lưu ý. Theo dõi sát diễn biến thời tiết trong giờ tới.'
+  : 'Điều kiện phơi bánh ổn định. Có thể tiếp tục phơi an toàn.'}
+`.trim();
   };
 
   const speakWeather = async () => {
 
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
+    if (isPlaying) {
+      audioRef.current?.pause();
       setIsPlaying(false);
-      setCurrentAudio(null);
       return;
     }
 
-    setIsLoading(true);
+    const text = generateWeatherScript();
 
     try {
+      const res = await fetch("/fpt-tts", {
+        method: "POST",
+        headers: {
+          "api-key": "SMPEJpZLaQlKQtY6xUL9jmBlVzJfcYKW",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ input: text, voice: "lannhi", speed: "", id: "1" })
+      });
 
-      const text = generateWeatherScript();
+      const json = await res.json();
+      if (json.error !== 0) throw new Error(json.message);
 
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
-        {
-          method: 'POST',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': API_KEY,
-          },
-          body: JSON.stringify({
-            text: text,
-            model_id: 'eleven_multilingual_v2',
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0,
-              use_speaker_boost: true
-            }
-          }),
-        }
-      );
+      // FPT trả về async URL, chờ file sẵn sàng
+      await new Promise(r => setTimeout(r, 2000));
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
+      const audio = new Audio(json.async);
+      audioRef.current = audio;
 
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+      audio.onended = () => setIsPlaying(false);
 
-      audio.onended = () => {
-        setIsPlaying(false);
-        setCurrentAudio(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.onerror = () => {
-        toast.error('Lỗi phát âm thanh');
-        setIsPlaying(false);
-        setCurrentAudio(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      setCurrentAudio(audio);
+      audio.play();
       setIsPlaying(true);
+      toast.success("Đang phát thông báo thời tiết");
 
-      await audio.play();
-
-      toast.success('Đang phát thông báo thời tiết', {
-        description: 'Bấm lại để dừng'
-      });
-
-    } catch (error) {
-
-      console.error(error);
-
-      toast.error('Không thể phát thông báo', {
-        description: 'Vui lòng kiểm tra kết nối hoặc API key'
-      });
-
-    } finally {
-      setIsLoading(false);
+    } catch (e: any) {
+      toast.error(`Lỗi TTS: ${e.message ?? "thử lại sau"}`);
     }
+
   };
 
   return (
     <Button
       onClick={speakWeather}
-      disabled={isLoading}
       className={`
         ${isPlaying
           ? 'bg-gradient-to-r from-red-500 to-rose-600'
@@ -188,12 +158,7 @@ export function VoiceNotification({ weatherData }: VoiceNotificationProps) {
       `}
     >
 
-      {isLoading ? (
-        <>
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Đang tải...</span>
-        </>
-      ) : isPlaying ? (
+      {isPlaying ? (
         <>
           <VolumeX className="w-5 h-5" />
           <span>Dừng phát</span>

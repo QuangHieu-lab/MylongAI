@@ -8,6 +8,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { useSystem } from "../contexts/SystemContext";
+import { useWeather } from "../hooks/useWeather";
 import {
   Camera,
   Thermometer,
@@ -30,6 +31,7 @@ interface LogEntry {
 
 export default function CameraMonitoring() {
   const { activeBatch, isDetecting } = useSystem();
+  const { currentWeather } = useWeather();
   const [logs, setLogs] = useState<LogEntry[]>([
     {
       time: "13:00",
@@ -136,38 +138,33 @@ export default function CameraMonitoring() {
     }
   };
 
-  // Risk assessment
+  // Risk assessment based on real weather data
   const getRiskLevel = () => {
     if (!activeBatch) return null;
-
     const now = new Date();
     const hour = now.getHours();
+    const nextHour = `${hour.toString().padStart(2, '0')}:00 - ${(hour + 2).toString().padStart(2, '0')}:00`;
 
-    // Check for rain risk
-    if (hour >= 16 && hour < 18) {
+    if (currentWeather.rainChance > 60) {
       return {
         level: "high",
         message: "Cảnh báo mưa",
-        timeRange: "16:30 - 18:00",
-        description: "Khả năng mưa cao trong khung giờ này",
-        color: "red",
+        timeRange: nextHour,
+        description: `Khả năng mưa ${currentWeather.rainChance}% - Chuẩn bị thu bánh`,
       };
-    } else if (activeBatch.humidity > 65) {
+    } else if (currentWeather.rainChance > 30 || currentWeather.humidity > 70) {
       return {
         level: "medium",
         message: "Độ ẩm cao",
-        timeRange: `${hour}:00 - ${hour + 2}:00`,
-        description: "Độ ẩm tăng cao, giám sát chặt chẽ",
-        color: "amber",
+        timeRange: nextHour,
+        description: `Độ ẩm ${currentWeather.humidity}%, mưa ${currentWeather.rainChance}% - Giám sát chặt`,
       };
     }
-
     return {
       level: "low",
       message: "Điều kiện tốt",
-      timeRange: `${hour}:00 - ${hour + 3}:00`,
-      description: "Không có rủi ro trong thời gian tới",
-      color: "emerald",
+      timeRange: nextHour,
+      description: `Nhiệt độ ${currentWeather.temperature.toFixed(1)}°C, độ ẩm ${currentWeather.humidity}% - Thuận lợi`,
     };
   };
 
@@ -381,7 +378,7 @@ export default function CameraMonitoring() {
                       </div>
                     </div>
                     <div className="text-3xl font-bold text-white">
-                      {activeBatch.temperature.toFixed(1)}°C
+                      {currentWeather.temperature.toFixed(1)}°C
                     </div>
                   </div>
 
@@ -398,7 +395,7 @@ export default function CameraMonitoring() {
                       </div>
                     </div>
                     <div className="text-3xl font-bold text-white">
-                      {Math.round(activeBatch.humidity)}%
+                      {currentWeather.humidity}%
                     </div>
                   </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useWeather } from '../hooks/useWeather';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { VoiceNotification } from '../common/VoiceNotification';
@@ -28,107 +28,8 @@ import {
   Legend
 } from 'recharts';
 
-interface WeatherData {
-  id: string;
-  time: string;
-  hour: number;
-  temperature: number;
-  humidity: number;
-  rainChance: number;
-  windSpeed: number;
-  risk: 'low' | 'medium' | 'high';
-}
-
 export default function Weather() {
-  const [currentWeather, setCurrentWeather] = useState({
-    temperature: 32,
-    humidity: 55,
-    rainChance: 15,
-    windSpeed: 12,
-    condition: 'Nắng ráo',
-    icon: 'sun',
-  });
-
-  const [forecastData] = useState<WeatherData[]>(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    
-    const forecast: WeatherData[] = [];
-    
-    for (let i = 0; i < 12; i++) {
-      const hour = (currentHour + i) % 24;
-      const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-      
-      // Simulate realistic weather patterns
-      let temp = 28 + Math.sin((hour - 6) * Math.PI / 12) * 6; // Peak at noon
-      let humidity = 50 + Math.cos((hour - 6) * Math.PI / 12) * 15; // Lower at noon
-      let rainChance = 10;
-      const windSpeed = 8 + Math.random() * 8;
-      let risk: 'low' | 'medium' | 'high' = 'low';
-      
-      // Add some variation
-      temp += (Math.random() - 0.5) * 3;
-      humidity += (Math.random() - 0.5) * 10;
-      
-      // Higher rain chance in late afternoon
-      if (hour >= 16 && hour <= 18) {
-        rainChance = 40 + Math.random() * 30;
-        humidity += 10;
-        risk = rainChance > 60 ? 'high' : 'medium';
-      } else if (hour >= 14 && hour < 16) {
-        rainChance = 20 + Math.random() * 20;
-        risk = rainChance > 30 ? 'medium' : 'low';
-      }
-      
-      // High humidity risk
-      if (humidity > 70) {
-        risk = risk === 'high' ? 'high' : 'medium';
-      }
-      
-      forecast.push({
-        id: `hour-${hour}`,
-        time: timeStr,
-        hour,
-        temperature: Math.round(temp * 10) / 10,
-        humidity: Math.round(humidity),
-        rainChance: Math.round(rainChance),
-        windSpeed: Math.round(windSpeed * 10) / 10,
-        risk,
-      });
-    }
-    
-    return forecast;
-  });
-
-  // Update current weather periodically
-  useEffect(() => {
-
-    // Update current weather periodically
-    const interval = setInterval(() => {
-      const hour = new Date().getHours();
-      let condition = 'Nắng ráo';
-      let icon = 'sun';
-      
-      if (hour >= 16 && hour <= 18) {
-        condition = 'Có mây, khả năng mưa';
-        icon = 'cloudrain';
-      } else if (hour >= 14 && hour < 16) {
-        condition = 'Có mây';
-        icon = 'cloud';
-      }
-      
-      setCurrentWeather(prev => ({
-        temperature: prev.temperature + (Math.random() - 0.5) * 0.5,
-        humidity: Math.max(30, Math.min(80, prev.humidity + (Math.random() - 0.5) * 2)),
-        rainChance: prev.rainChance + (Math.random() - 0.5) * 5,
-        windSpeed: prev.windSpeed + (Math.random() - 0.5),
-        condition,
-        icon,
-      }));
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const { currentWeather, forecastData, loading, error } = useWeather();
 
   const getWeatherIcon = (icon: string, size: string = 'w-8 h-8') => {
     switch (icon) {
@@ -150,6 +51,18 @@ export default function Weather() {
   };
 
   const highRiskHours = forecastData.filter(f => f.risk === 'high');
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64 text-slate-400">
+      <Cloud className="w-6 h-6 animate-pulse mr-2" /> Đang tải dữ liệu thời tiết...
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex items-center justify-center h-64 text-red-400">
+      <AlertTriangle className="w-6 h-6 mr-2" /> {error}
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 text-slate-200">
